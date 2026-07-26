@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Ledger palette — ink navy base, paper card surface, brass stamp accent */
+  --color-ink: #14213D;
+  --color-ink-light: #1E2F52;
+  --color-ink-lighter: #2A3D66;
+  --color-paper: #EDE6D6;
+  --color-paper-dark: #E0D7C2;
+  --color-brass: #C9A227;
+  --color-sage: #4F7965;
+  --color-sage-light: #6B9583;
+  --color-rust: #B33A3A;
+  --color-rust-light: #C95C5C;
+
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink);
+  font-family: var(--font-body);
+  color: var(--color-paper);
+}
+
+/* subtle paper-grain texture for card surfaces, so "paper" doesn't read flat */
+.paper-texture {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(20,33,61,0.04) 1px, transparent 0);
+  background-size: 12px 12px;
+}
+
+/* stamp rotation utility for the signature ledger-stamp element */
+.stamp {
+  transform: rotate(-6deg);
+}
+
+::selection {
+  background-color: var(--color-brass);
+  color: var(--color-ink);
+}

@@ -1,0 +1,18 @@
+# Environment variables — NEVER commit real API keys/secrets
+backend/.env
+frontend/.env
+.env
+.env.local
+
+# Python
+backend/venv/
+**/__pycache__/
+*.pyc
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# OS junk files
+.DS_Store
+Thumbs.db
