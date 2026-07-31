@@ -1,3 +1,4 @@
+import { TeacherAbsenceTracker } from './TeacherAbsenceTracker';
 import { useRef, useEffect } from 'react';
 import { useDashboardStore } from './store';
 import { AlertFeed } from './AlertFeed';
@@ -75,7 +76,10 @@ function App() {
       </header>
 
       <main className="max-w-6xl mx-auto px-8 py-8 space-y-10">
-        <AlertFeed />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <AlertFeed />
+          <TeacherAbsenceTracker />
+        </div>
 
         {timetableVersion && <LedgerDiff version={timetableVersion} />}
 

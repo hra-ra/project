@@ -88,3 +88,44 @@ def submit_review_correction(form_id: str, correction: ReviewCorrection):
     corrected_fields = {k: v for k, v in correction.model_dump().items() if v is not None}
     result = resolve_reviewed_form(form_id, corrected_fields, db)
     return result
+    # ==========================================
+# TEACHER ABSENTEEISM ANALYTICS ENDPOINT
+# ==========================================
+@app.get("/analytics/teacher-absences")
+def get_teacher_absence_analytics():
+    """
+    Calculates total leaves taken and periods missed per teacher
+    to help administrators identify frequent absenteeism patterns.
+    """
+    try:
+        # Fetching forms processed in DB
+        forms = db.get_form_submissions() if hasattr(db, 'get_form_submissions') else []
+        
+        teacher_stats = {}
+        for form in forms:
+            teacher_name = form.get("teacher_name", "Unknown Teacher")
+            status = form.get("status")
+            
+            # Count auto_applied and reviewed forms
+            if status in ["auto_applied", "reviewed", "resolved"]:
+                if teacher_name not in teacher_stats:
+                    teacher_stats[teacher_name] = {
+                        "teacher_name": teacher_name,
+                        "total_leaves": 0,
+                        "risk_level": "LOW"
+                    }
+                teacher_stats[teacher_name]["total_leaves"] += 1
+                
+                # Assign risk levels based on leave frequency
+                leaves = teacher_stats[teacher_name]["total_leaves"]
+                if leaves >= 5:
+                    teacher_stats[teacher_name]["risk_level"] = "HIGH"
+                elif leaves >= 3:
+                    teacher_stats[teacher_name]["risk_level"] = "MEDIUM"
+
+        return {
+            "status": "success",
+            "data": list(teacher_stats.values())
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "data": []}
