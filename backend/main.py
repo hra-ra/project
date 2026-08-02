@@ -87,9 +87,8 @@ def submit_review_correction(form_id: str, correction: ReviewCorrection):
 def get_teacher_absence_analytics():
     try:
         db = get_db()
-        now = datetime.now()
-        current_month_prefix = f"{now.year}-{now.month:02d}"
-
+        
+        # Safely fetch all submissions from DB
         forms = []
         if hasattr(db, 'get_form_submissions'):
             forms = db.get_form_submissions()
@@ -101,52 +100,33 @@ def get_teacher_absence_analytics():
         teacher_counts = {}
 
         for form in forms:
-            if hasattr(form, '__dict__'):
-                data = form.__dict__
-            elif isinstance(form, dict):
-                data = form
-            else:
+            data = form.__dict__ if hasattr(form, '__dict__') else (form if isinstance(form, dict) else {})
+            if not data:
                 continue
 
+            # Extract teacher name from top-level OR nested extraction dict (Manual Review & OCR both)
+            extraction = data.get("extraction") if isinstance(data.get("extraction"), dict) else {}
+            
             teacher_name = (
                 data.get("teacher_name") or 
                 data.get("teacher") or 
-                (isinstance(data.get("extraction"), dict) and data.get("extraction").get("teacher")) or 
+                extraction.get("teacher_name") or 
+                extraction.get("teacher") or 
                 "Unknown Teacher"
             )
             
             teacher_name = str(teacher_name).strip().title()
 
-            submitted_at = (
-                data.get("date") or 
-                data.get("created_at") or 
-                data.get("timestamp") or 
-                (isinstance(data.get("extraction"), dict) and data.get("extraction").get("date"))
-            )
-            
-            is_current_month = True
-            if submitted_at:
-                date_str = str(submitted_at)
-                if date_str.startswith(current_month_prefix) or current_month_prefix in date_str or "2026-08" in date_str:
-                    is_current_month = True
-                else:
-                    is_current_month = False
-
-            if teacher_name and teacher_name != "Unknown Teacher" and is_current_month:
+            # Count valid teacher names (ignoring empty or unknown records)
+            if teacher_name and teacher_name not in ("Unknown Teacher", "None", ""):
                 teacher_counts[teacher_name] = teacher_counts.get(teacher_name, 0) + 1
 
         response_data = [
-            {
-                "teacher_name": name,
-                "leave_count": count
-            }
+            {"teacher_name": name, "leave_count": count}
             for name, count in teacher_counts.items()
         ]
 
-        return {
-            "status": "success",
-            "data": response_data
-        }
+        return {"status": "success", "data": response_data}
 
     except Exception as e:
         return {"status": "error", "message": str(e), "data": []}
