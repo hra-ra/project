@@ -83,50 +83,75 @@ def submit_review_correction(form_id: str, correction: ReviewCorrection):
 # ==========================================
 # MONTHLY TEACHER LEAVE COUNTER ENDPOINT
 # ==========================================
+# ==========================================
+# MONTHLY TEACHER LEAVE COUNTER ENDPOINT
+# ==========================================
 @app.get("/analytics/teacher-absences")
 def get_teacher_absence_analytics():
+    """
+    Counts total submitted leave forms per teacher regardless of 
+    whether extracted via OCR or submitted via Review Correction modal.
+    """
     try:
         db = get_db()
         
-        # Safely fetch all submissions from DB
+        # Safely extract form collection from database wrapper
         forms = []
-        if hasattr(db, 'get_form_submissions'):
+        if hasattr(db, 'get_form_submissions') and callable(db.get_form_submissions):
             forms = db.get_form_submissions()
-        elif hasattr(db, 'get_forms'):
+        elif hasattr(db, 'get_forms') and callable(db.get_forms):
             forms = db.get_forms()
         elif hasattr(db, 'forms'):
             forms = db.forms
+        elif hasattr(db, 'form_submissions'):
+            forms = db.form_submissions
 
         teacher_counts = {}
 
         for form in forms:
-            data = form.__dict__ if hasattr(form, '__dict__') else (form if isinstance(form, dict) else {})
-            if not data:
-                continue
+            # Convert object or Pydantic model to dict safely
+            if hasattr(form, '__dict__'):
+                data = form.__dict__
+            elif hasattr(form, 'model_dump'):
+                data = form.model_dump()
+            elif isinstance(form, dict):
+                data = form
+            else:
+                data = {}
 
-            # Extract teacher name from top-level OR nested extraction dict (Manual Review & OCR both)
-            extraction = data.get("extraction") if isinstance(data.get("extraction"), dict) else {}
-            
-            teacher_name = (
+            # Multi-layer deep retrieval for teacher name
+            extraction_dict = data.get("extraction") if isinstance(data.get("extraction"), dict) else {}
+            corrected_dict = data.get("corrected_fields") if isinstance(data.get("corrected_fields"), dict) else {}
+
+            raw_name = (
                 data.get("teacher_name") or 
                 data.get("teacher") or 
-                extraction.get("teacher_name") or 
-                extraction.get("teacher") or 
+                corrected_dict.get("teacher_name") or
+                corrected_dict.get("teacher") or
+                extraction_dict.get("teacher_name") or 
+                extraction_dict.get("teacher") or 
                 "Unknown Teacher"
             )
-            
-            teacher_name = str(teacher_name).strip().title()
 
-            # Count valid teacher names (ignoring empty or unknown records)
-            if teacher_name and teacher_name not in ("Unknown Teacher", "None", ""):
+            # Clean name formatting (e.g. "mr rao" -> "Mr Rao")
+            teacher_name = str(raw_name).strip().title()
+
+            # Filter out invalid / unknown records
+            if teacher_name and teacher_name not in ("Unknown Teacher", "None", "", "Null"):
                 teacher_counts[teacher_name] = teacher_counts.get(teacher_name, 0) + 1
 
         response_data = [
-            {"teacher_name": name, "leave_count": count}
+            {
+                "teacher_name": name,
+                "leave_count": count
+            }
             for name, count in teacher_counts.items()
         ]
 
-        return {"status": "success", "data": response_data}
+        return {
+            "status": "success",
+            "data": response_data
+        }
 
     except Exception as e:
         return {"status": "error", "message": str(e), "data": []}
