@@ -98,15 +98,15 @@ def submit_review_correction(form_id: str, correction: ReviewCorrection):
 def get_teacher_absence_analytics():
     """
     Tracks leave submissions per teacher for the current calendar month.
-    Repeated leave applications automatically increment the leave count.
-    Resets count at the start of each month.
+    Supports YYYY-MM-DD date formats and resets automatically every month.
     """
     try:
         db = get_db()
-        current_year = datetime.now().year
-        current_month = datetime.now().month
+        now = datetime.now()
+        # Generates string like "2026-08" for current month filtering
+        current_month_prefix = f"{now.year}-{now.month:02d}"
 
-        # Fetch form submissions from DB layer safely
+        # Fetch form submissions from DB safely
         forms = []
         if hasattr(db, 'get_form_submissions'):
             forms = db.get_form_submissions()
@@ -118,7 +118,6 @@ def get_teacher_absence_analytics():
         teacher_counts = {}
 
         for form in forms:
-            # Handle object vs dictionary payload format
             if hasattr(form, '__dict__'):
                 data = form.__dict__
             elif isinstance(form, dict):
@@ -126,28 +125,34 @@ def get_teacher_absence_analytics():
             else:
                 continue
 
-            # Extract teacher name from possible schema fields
+            # Safely extract teacher name
             teacher_name = (
                 data.get("teacher_name") or 
                 data.get("teacher") or 
-                (data.get("extraction") and isinstance(data.get("extraction"), dict) and data.get("extraction").get("teacher")) or 
+                (isinstance(data.get("extraction"), dict) and data.get("extraction").get("teacher")) or 
                 "Unknown Teacher"
             )
             
             teacher_name = str(teacher_name).strip().title()
 
-            submitted_at = data.get("created_at") or data.get("timestamp") or data.get("date")
+            # Date checking for YYYY-MM-DD format
+            submitted_at = (
+                data.get("date") or 
+                data.get("created_at") or 
+                data.get("timestamp") or 
+                (isinstance(data.get("extraction"), dict) and data.get("extraction").get("date"))
+            )
             
             is_current_month = True
             if submitted_at:
-                try:
-                    dt = datetime.fromisoformat(str(submitted_at).replace("Z", "+00:00"))
-                    if dt.year != current_year or dt.month != current_month:
-                        is_current_month = False
-                except Exception:
-                    pass
+                date_str = str(submitted_at)
+                # Matches YYYY-MM-DD starting with current year-month (e.g., "2026-08")
+                if date_str.startswith(current_month_prefix) or current_month_prefix in date_str:
+                    is_current_month = True
+                else:
+                    is_current_month = False
 
-            if is_current_month and teacher_name != "Unknown Teacher":
+            if teacher_name and teacher_name != "Unknown Teacher" and is_current_month:
                 teacher_counts[teacher_name] = teacher_counts.get(teacher_name, 0) + 1
 
         response_data = [
