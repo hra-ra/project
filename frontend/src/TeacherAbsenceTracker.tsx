@@ -25,15 +25,7 @@ export const TeacherAbsenceTracker: React.FC = () => {
   };
 
   useEffect(() => {
-    // Initial fetch
     fetchAbsences();
-
-    // Auto-refresh every 3 seconds to capture live form updates automatically
-    const interval = setInterval(() => {
-      fetchAbsences();
-    }, 3000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const currentMonthName = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -51,7 +43,7 @@ export const TeacherAbsenceTracker: React.FC = () => {
         </div>
       </div>
 
-      {loading && absenceData.length === 0 ? (
+      {loading ? (
         <p className="text-sm font-mono text-black/60 py-2">Loading leave counts...</p>
       ) : absenceData.length === 0 ? (
         <p className="text-sm text-black/70 italic py-2">

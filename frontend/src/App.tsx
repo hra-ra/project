@@ -1,4 +1,4 @@
-import TeacherAbsenceTracker from './TeacherAbsenceTracker';
+import { TeacherAbsenceTracker } from './TeacherAbsenceTracker';
 import { useRef, useEffect } from 'react';
 import { useDashboardStore } from './store';
 import { AlertFeed } from './AlertFeed';
