@@ -1,65 +1,73 @@
 import React, { useEffect, useState } from 'react';
+import { useDashboardStore } from './store';
 
-interface TeacherStat {
+interface TeacherAbsenceSummary {
   teacher_name: string;
-  total_leaves: number;
-  risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  leave_count: number;
 }
 
 export const TeacherAbsenceTracker: React.FC = () => {
-  const [stats, setStats] = useState<TeacherStat[]>([]);
+  const [absenceData, setAbsenceData] = useState<TeacherAbsenceSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-        const res = await fetch(`${baseUrl}/analytics/teacher-absences`);
-        const json = await res.json();
-        if (json.status === 'success') {
-          setStats(json.data);
-        }
-      } catch (err) {
-        console.error('Failed to load absence analytics', err);
-      } finally {
-        setLoading(false);
+  const demoStage = useDashboardStore((s) => s.demoStage);
+
+  const fetchAbsences = async () => {
+    try {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const res = await fetch(`${baseUrl}/analytics/teacher-absences`);
+      const json = await res.json();
+      if (json.status === 'success' && Array.isArray(json.data)) {
+        setAbsenceData(json.data);
       }
-    };
-
-    fetchAnalytics();
-  }, []);
-
-  const getRiskBadge = (level: 'LOW' | 'MEDIUM' | 'HIGH') => {
-    switch (level) {
-      case 'HIGH':
-        return <span className="px-2 py-0.5 text-xs font-bold bg-[var(--color-rust)] text-white rounded">HIGH ABSENTEEISM</span>;
-      case 'MEDIUM':
-        return <span className="px-2 py-0.5 text-xs font-bold bg-[var(--color-brass)] text-black rounded">MODERATE</span>;
-      default:
-        return <span className="px-2 py-0.5 text-xs font-bold bg-[var(--color-sage)] text-white rounded">NORMAL</span>;
+    } catch (err) {
+      console.error('Failed to load absence metrics:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchAbsences();
+  }, [demoStage]);
+
+  const currentMonthName = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+
   return (
-    <div className="p-4 bg-[var(--color-paper)] border border-[var(--color-ink)]/20 rounded-lg shadow-sm">
-      <h2 className="font-serif text-lg font-bold text-[var(--color-ink)] mb-3 flex items-center justify-between">
-        <span>📊 Teacher Absence & Leave Tracker</span>
-        <span className="text-xs font-mono font-normal text-[var(--color-ink)]/60">Ledger Metrics</span>
-      </h2>
+    <div className="p-5 bg-[#F4F1EA] border border-black/20 rounded-md shadow-sm">
+      <div className="flex items-center justify-between mb-3 border-b border-black/10 pb-2">
+        <div>
+          <h2 className="font-serif text-lg font-bold text-[#111] flex items-center gap-2">
+            <span>📋 Monthly Leave Counter</span>
+          </h2>
+          <p className="text-xs font-mono text-black/60">
+            Resets Monthly • Active: {currentMonthName}
+          </p>
+        </div>
+      </div>
 
       {loading ? (
-        <p className="text-sm font-mono text-[var(--color-ink)]/60">Loading metrics...</p>
-      ) : stats.length === 0 ? (
-        <p className="text-sm text-[var(--color-ink)]/70 italic">No historical absence flags recorded yet.</p>
+        <p className="text-sm font-mono text-black/60 py-2">Loading leave counts...</p>
+      ) : absenceData.length === 0 ? (
+        <p className="text-sm text-black/70 italic py-2">
+          No leave submissions recorded for this month yet.
+        </p>
       ) : (
-        <div className="space-y-2">
-          {stats.map((item, idx) => (
-            <div key={idx} className="flex items-center justify-between p-2 bg-white/60 rounded border border-[var(--color-ink)]/10">
-              <div>
-                <p className="font-medium text-sm text-[var(--color-ink)]">{item.teacher_name}</p>
-                <p className="text-xs font-mono text-[var(--color-ink)]/70">{item.total_leaves} leave form(s) recorded</p>
+        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+          {absenceData.map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center justify-between p-2.5 bg-white/80 rounded border border-black/10 shadow-xs"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-600"></span>
+                <span className="font-semibold text-sm text-[#111] capitalize">
+                  {item.teacher_name}
+                </span>
               </div>
-              <div>{getRiskBadge(item.risk_level)}</div>
+              <span className="text-xs font-mono font-bold px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-full">
+                Leave Count: {item.leave_count}
+              </span>
             </div>
           ))}
         </div>

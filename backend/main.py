@@ -10,6 +10,7 @@ only request/response handling. Run with:
 Requires env vars: SUPABASE_URL, SUPABASE_SERVICE_KEY, GEMINI_API_KEY
 """
 
+from datetime import datetime
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv(usecwd=True))
 
@@ -88,44 +89,79 @@ def submit_review_correction(form_id: str, correction: ReviewCorrection):
     corrected_fields = {k: v for k, v in correction.model_dump().items() if v is not None}
     result = resolve_reviewed_form(form_id, corrected_fields, db)
     return result
-    # ==========================================
-# TEACHER ABSENTEEISM ANALYTICS ENDPOINT
+
+
+# ==========================================
+# MONTHLY TEACHER LEAVE COUNTER ENDPOINT
 # ==========================================
 @app.get("/analytics/teacher-absences")
 def get_teacher_absence_analytics():
     """
-    Calculates total leaves taken and periods missed per teacher
-    to help administrators identify frequent absenteeism patterns.
+    Tracks leave submissions per teacher for the current calendar month.
+    Repeated leave applications automatically increment the leave count.
+    Resets count at the start of each month.
     """
     try:
-        # Fetching forms processed in DB
-        forms = db.get_form_submissions() if hasattr(db, 'get_form_submissions') else []
-        
-        teacher_stats = {}
+        db = get_db()
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+
+        # Fetch form submissions from DB layer safely
+        forms = []
+        if hasattr(db, 'get_form_submissions'):
+            forms = db.get_form_submissions()
+        elif hasattr(db, 'get_forms'):
+            forms = db.get_forms()
+        elif hasattr(db, 'forms'):
+            forms = db.forms
+
+        teacher_counts = {}
+
         for form in forms:
-            teacher_name = form.get("teacher_name", "Unknown Teacher")
-            status = form.get("status")
+            # Handle object vs dictionary payload format
+            if hasattr(form, '__dict__'):
+                data = form.__dict__
+            elif isinstance(form, dict):
+                data = form
+            else:
+                continue
+
+            # Extract teacher name from possible schema fields
+            teacher_name = (
+                data.get("teacher_name") or 
+                data.get("teacher") or 
+                (data.get("extraction") and isinstance(data.get("extraction"), dict) and data.get("extraction").get("teacher")) or 
+                "Unknown Teacher"
+            )
             
-            # Count auto_applied and reviewed forms
-            if status in ["auto_applied", "reviewed", "resolved"]:
-                if teacher_name not in teacher_stats:
-                    teacher_stats[teacher_name] = {
-                        "teacher_name": teacher_name,
-                        "total_leaves": 0,
-                        "risk_level": "LOW"
-                    }
-                teacher_stats[teacher_name]["total_leaves"] += 1
-                
-                # Assign risk levels based on leave frequency
-                leaves = teacher_stats[teacher_name]["total_leaves"]
-                if leaves >= 5:
-                    teacher_stats[teacher_name]["risk_level"] = "HIGH"
-                elif leaves >= 3:
-                    teacher_stats[teacher_name]["risk_level"] = "MEDIUM"
+            teacher_name = str(teacher_name).strip().title()
+
+            submitted_at = data.get("created_at") or data.get("timestamp") or data.get("date")
+            
+            is_current_month = True
+            if submitted_at:
+                try:
+                    dt = datetime.fromisoformat(str(submitted_at).replace("Z", "+00:00"))
+                    if dt.year != current_year or dt.month != current_month:
+                        is_current_month = False
+                except Exception:
+                    pass
+
+            if is_current_month and teacher_name != "Unknown Teacher":
+                teacher_counts[teacher_name] = teacher_counts.get(teacher_name, 0) + 1
+
+        response_data = [
+            {
+                "teacher_name": name,
+                "leave_count": count
+            }
+            for name, count in teacher_counts.items()
+        ]
 
         return {
             "status": "success",
-            "data": list(teacher_stats.values())
+            "data": response_data
         }
+
     except Exception as e:
         return {"status": "error", "message": str(e), "data": []}
