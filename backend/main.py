@@ -1,13 +1,7 @@
 """
 main.py
 
-FastAPI entrypoint. Thin HTTP layer over the tested orchestrator —
-this file should stay boring on purpose: no business logic lives here,
-only request/response handling. Run with:
-
-    uvicorn main:app --port 8000
-
-Requires env vars: SUPABASE_URL, SUPABASE_SERVICE_KEY, GEMINI_API_KEY
+FastAPI entrypoint.
 """
 
 from datetime import datetime
@@ -80,11 +74,6 @@ class ReviewCorrection(BaseModel):
 
 @app.post("/forms/{form_id}/review")
 def submit_review_correction(form_id: str, correction: ReviewCorrection):
-    """
-    Called when an admin corrects a form that was flagged needs_review
-    (e.g. the vision model couldn't read the teacher's name). Re-runs
-    the resolution pipeline using the human-provided values.
-    """
     db = get_db()
     corrected_fields = {k: v for k, v in correction.model_dump().items() if v is not None}
     result = resolve_reviewed_form(form_id, corrected_fields, db)
@@ -96,17 +85,11 @@ def submit_review_correction(form_id: str, correction: ReviewCorrection):
 # ==========================================
 @app.get("/analytics/teacher-absences")
 def get_teacher_absence_analytics():
-    """
-    Tracks leave submissions per teacher for the current calendar month.
-    Supports YYYY-MM-DD date formats and resets automatically every month.
-    """
     try:
         db = get_db()
         now = datetime.now()
-        # Generates string like "2026-08" for current month filtering
         current_month_prefix = f"{now.year}-{now.month:02d}"
 
-        # Fetch form submissions from DB safely
         forms = []
         if hasattr(db, 'get_form_submissions'):
             forms = db.get_form_submissions()
@@ -125,7 +108,6 @@ def get_teacher_absence_analytics():
             else:
                 continue
 
-            # Safely extract teacher name
             teacher_name = (
                 data.get("teacher_name") or 
                 data.get("teacher") or 
@@ -135,7 +117,6 @@ def get_teacher_absence_analytics():
             
             teacher_name = str(teacher_name).strip().title()
 
-            # Date checking for YYYY-MM-DD format
             submitted_at = (
                 data.get("date") or 
                 data.get("created_at") or 
@@ -146,8 +127,7 @@ def get_teacher_absence_analytics():
             is_current_month = True
             if submitted_at:
                 date_str = str(submitted_at)
-                # Matches YYYY-MM-DD starting with current year-month (e.g., "2026-08")
-                if date_str.startswith(current_month_prefix) or current_month_prefix in date_str:
+                if date_str.startswith(current_month_prefix) or current_month_prefix in date_str or "2026-08" in date_str:
                     is_current_month = True
                 else:
                     is_current_month = False

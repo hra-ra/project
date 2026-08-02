@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useDashboardStore } from './store';
 
 interface TeacherAbsenceSummary {
   teacher_name: string;
@@ -9,8 +8,6 @@ interface TeacherAbsenceSummary {
 export const TeacherAbsenceTracker: React.FC = () => {
   const [absenceData, setAbsenceData] = useState<TeacherAbsenceSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-
-  const demoStage = useDashboardStore((s) => s.demoStage);
 
   const fetchAbsences = async () => {
     try {
@@ -29,12 +26,12 @@ export const TeacherAbsenceTracker: React.FC = () => {
 
   useEffect(() => {
     fetchAbsences();
-  }, [demoStage]);
+  }, []);
 
   const currentMonthName = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="p-5 bg-[#F4F1EA] border border-black/20 rounded-md shadow-sm">
+    <div className="p-5 bg-[#F4F1EA] border border-black/20 rounded-md shadow-sm my-4">
       <div className="flex items-center justify-between mb-3 border-b border-black/10 pb-2">
         <div>
           <h2 className="font-serif text-lg font-bold text-[#111] flex items-center gap-2">
@@ -75,3 +72,5 @@ export const TeacherAbsenceTracker: React.FC = () => {
     </div>
   );
 };
+
+export default TeacherAbsenceTracker;
